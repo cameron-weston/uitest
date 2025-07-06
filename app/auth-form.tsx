@@ -1,17 +1,18 @@
 "use client";
-import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { Label } from '../components/ui/label';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
-import React from 'react';
-import { Icons } from '../components/ui/icons';
-import { useForm } from 'react-hook-form';
-import { createBrowserClient } from '@supabase/ssr';
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Label } from "../components/ui/label";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import React from "react";
+import { Icons } from "../components/ui/icons";
+import { useForm } from "react-hook-form";
+import { createBrowserClient } from "@supabase/ssr";
+import { debug } from "console";
 
 interface IFormInput {
-  email: string
-  password: string
+  email: string;
+  password: string;
 }
 interface AuthFormProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -19,22 +20,48 @@ export default function AuthForm({ className, ...props }: AuthFormProps) {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const { register, handleSubmit } = useForm<IFormInput>()
+  );
+
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const { register, handleSubmit } = useForm<IFormInput>();
   const router = useRouter();
-  const onSubmit = handleSubmit(
-    async (data) => {
-      setIsLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
-      setIsLoading(false)
-      if (error) alert(error.message);
-      // push to home page
-      router.push("/employee");
-    })
+  const onSubmit = handleSubmit(async (data) => {
+    setIsLoading(true);
+
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
+
+    setIsLoading(false);
+
+    // TODO: Add a unique constraint
+    // TODO: Add a policy to avoid injection attack 
+
+    // If auth id (user_id) is NULL for employee in employees table, add it now.
+    // const user = signInData.user;
+    // if (user) {
+    //   // Step 1: Find the employee by email
+    //   const { data: employee, error: fetchError } = await supabase
+    //     .from("employees")
+    //     .select("id, user_id")
+    //     .eq("email", user.email)
+    //     .maybeSingle();
+
+    //     debugger;
+    //   if (employee != null && employee.user_id === null) {
+    //     // Step 2: Update the user_id only if it's currently null
+    //     await supabase
+    //       .from("employees")
+    //       .update({ user_id: user.id })
+    //       .eq("id", employee.id);
+    //   }
+    //}
+
+    if (error) alert(error.message);
+    // push to home page
+    router.push("/employee");
+  });
 
   return (
     <div className={cn("grid gap-6", className)} {...props}>
@@ -45,7 +72,7 @@ export default function AuthForm({ className, ...props }: AuthFormProps) {
               Email
             </Label>
             <Input
-              {...register('email')}
+              {...register("email")}
               id="email"
               placeholder="name@example.com"
               type="email"
@@ -55,7 +82,7 @@ export default function AuthForm({ className, ...props }: AuthFormProps) {
               disabled={isLoading}
             />
             <Input
-              {...register('password')}
+              {...register("password")}
               id="password"
               type="password"
               autoCapitalize="none"
@@ -73,5 +100,5 @@ export default function AuthForm({ className, ...props }: AuthFormProps) {
         </div>
       </form>
     </div>
-  )
+  );
 }
