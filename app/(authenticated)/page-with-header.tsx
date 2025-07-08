@@ -2,9 +2,9 @@
 import { cn } from '@/lib/utils'
 import { usePathname } from 'next/navigation'
 import React, { PropsWithChildren } from 'react'
-import { FiBriefcase } from 'react-icons/fi';
-import { HiOutlineUserGroup } from 'react-icons/hi';
-import { CiCloud } from "react-icons/ci";
+import { FiBriefcase, FiUser } from 'react-icons/fi';
+import { HiOutlineUserGroup, HiUser, HiUserCircle } from 'react-icons/hi';
+import { CiCloud, CiUser } from "react-icons/ci";
 
 export const PAGES = [
 	{
@@ -21,7 +21,12 @@ export const PAGES = [
 		label: 'API',
 		href: '/api',
 		icon: CiCloud
-	}
+	},
+    {
+        label: 'Users',
+        href: '/users',
+        icon: FiUser
+    }
 ]
 
 const PageWithHeader = ({ children, className }: PropsWithChildren<{ className: string }>) => {
