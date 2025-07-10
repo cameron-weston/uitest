@@ -9,11 +9,10 @@ export async function POST(
     try {
         const body = await request.json()
 
-        if (body.number) {
-            await enqueue('/example/number', {
-                number: body.number,
-            })
-        }
+        await enqueue('/tasks/trigger', {
+            id: body.id,
+        })
+        
         return NextResponse.json(
             { message: 'Success' },
             { status: 200 }

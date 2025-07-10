@@ -1,76 +1,107 @@
 "use client";
 
-import { createBrowserClient, createServerClient } from "@supabase/ssr";
-import ky from "ky";
-import { cookies } from "next/headers";
 import { useState, useEffect, FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import ky from "ky";
+import { createBrowserClient } from "@supabase/ssr";
 import { UnassignedEmployee } from "./page";
 
-type EmployeeOption = {
-  id: string;
-  first_name: string;
-  last_name: string;
+type Props = {
+  unassignedEmployees: UnassignedEmployee[];
 };
 
-export default function AddUserModal({
-  unassignedEmployees,
-}: {
-  unassignedEmployees: UnassignedEmployee[];
-}) {
+export default function AddUserModal({ unassignedEmployees }: Props) {
+  const router = useRouter();
+  const [alert, setAlert] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
   const [profile, setProfile] = useState<"admin" | "manager">("admin");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [taskId, setTaskId] = useState<string | null>(null);
 
-  // ✅ Only fetch when the modal opens
-//   useEffect(() => {
-//     if (!isOpen) return;
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-//     (async () => {
-//       const supabase = supabaseUtils.createBrowserClient(cookies());
-
-//       const { data: a } = await supabase.from("user_api").select("id");
-//       const assignedIds = new Set(a?.map((r) => r.id));
-
-//       const { data: all } = await supabase
-//         .from("employees")
-//         .select("id, first_name, last_name");
-
-//       setEmployees((all ?? []).filter((e) => !assignedIds.has(e.id)));
-//     })();
-//   }, [isOpen]);
-
-//   const toggleSelect = (id: string) => {
-//     setSelectedIds((s) => {
-//       const next = new Set(s);
-//       next.has(id) ? next.delete(id) : next.add(id);
-//       return next;
-//     });
-//   };
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // fire off your async signup task
-    // replace with your actual endpoint / RPC
-    const res = await fetch("/api/start-user-signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profile,
-        user_ids: Array.from(selectedIds),
-      }),
-    });
-    const { taskId: id } = await res.json();
-    setTaskId(id);
+    const payload = { user_ids: Array.from(selectedIds), profile };
+
+    try {
+      const { data: task, error: insertError } = await supabase
+        .from("async_tasks")
+        .insert({
+          endpoint: "/users/signup_all",
+          status: "in_progress",
+          payload: {
+            user_ids: payload.user_ids,
+            profile: payload.profile, // TODO: Can make this an enum type
+          },
+        })
+        .select()
+        .single();
+
+      if (insertError || !task) {
+        console.error("Failed to create task:", insertError);
+        return;
+      }
+
+      // Monitor the task id
+      setTaskId(task.id);
+
+      // Call /tasks/trigger to start processing
+      const response = await ky.post("/api/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: task.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to trigger task");
+      }
+
+    } 
+    // The useEffect will now monitor the task status
+    catch (error) {
+      console.error("Error creating users:", error);
+    }
   };
+
+useEffect(() => {
+  if (!taskId) return;
+
+  const channel = supabase
+    .channel(`async_tasks_listener_${taskId}`)
+    .on(
+      "postgres_changes",
+      {
+        schema: "public",
+        table: "async_tasks",
+        event: "UPDATE",
+        filter: `id=eq.${taskId}`,
+      },
+      (payload) => {
+        if (payload.new.status === "done" || payload.new.status === "error") {
+          setIsOpen(false);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    channel.unsubscribe();
+  };
+}, [taskId]);
 
   return (
     <>
@@ -92,9 +123,10 @@ export default function AddUserModal({
             onSubmit={handleSubmit}
             className="bg-white p-6 rounded-lg shadow-lg z-10 w-full max-w-lg space-y-4"
           >
+            {alert && <p className="text-red-500">{alert}</p>}
+
             <h2 className="text-xl font-bold">Create New Users</h2>
 
-            {/* Profile dropdown */}
             <label className="block">
               Profile
               <select
@@ -109,32 +141,30 @@ export default function AddUserModal({
               </select>
             </label>
 
-            {/* Employee checklist */}
             <fieldset className="space-y-1">
               <legend>Employees without a user_api record</legend>
-              {unassignedEmployees.length === 0 && (
+              {unassignedEmployees.length === 0 ? (
                 <p className="text-gray-500">All employees already users.</p>
+              ) : (
+                unassignedEmployees.map((e) => (
+                  <label key={e.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(e.id)}
+                      onChange={() => toggleSelect(e.id)}
+                      className="form-checkbox"
+                    />
+                    {e.first_name} {e.last_name}
+                  </label>
+                ))
               )}
-
-              {unassignedEmployees.map((e) => (
-                <label key={e.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(e.id)}
-                    onChange={() => toggleSelect(e.id)}
-                    className="form-checkbox"
-                  />
-                  {e.first_name} {e.last_name}
-                </label>
-              ))}
             </fieldset>
 
-            {/* Submit & status */}
             <div className="flex items-center justify-between mt-4">
               <button
                 type="submit"
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded disabled:opacity-50"
                 disabled={selectedIds.size === 0}
+                className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded disabled:opacity-50"
               >
                 Submit
               </button>
