@@ -26,7 +26,6 @@ WHERE id <> (
 );
 
 
-
 -- -- Test: Adding back manager name and excluding current user
 -- DROP VIEW IF EXISTS my_subordinates;
 

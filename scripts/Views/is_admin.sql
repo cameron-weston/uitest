@@ -1,13 +1,13 @@
-create view public.is_admin as
-select
+CREATE VIEW public.is_admin AS
+SELECT
   (
-    exists (
-      select
+    EXISTS (
+      SELECT
         1
-      from
+      FROM
         user_api
-      where
+      WHERE
         user_api.id = auth.uid ()
-        and user_api.profile = 'admin'::profile_type
+        AND user_api.profile = 'admin'::profile_type
     )
-  ) as is_admin;
+  ) AS is_admin;
