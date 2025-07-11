@@ -6,7 +6,7 @@ ALTER TABLE jobs
 GRANT SELECT ON jobs TO authenticated;
 
 -- 3. Policy: allow reading only jobs assigned to your subordinates
-CREATE POLICY "Managers view jobs of permitted employees"
+CREATE POLICY "Managers view jobs of subordinates"
   ON jobs
   FOR SELECT
   USING (

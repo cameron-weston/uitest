@@ -43,7 +43,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
           status: "in_progress",
           payload: {
             user_ids: payload.user_ids,
-            profile: payload.profile, // TODO: Can make this an enum type
+            profile: payload.profile, // TODO: Can make this an enum type in here and api. That way we can validate it and update it in once place in the future.
           },
         })
         .select()
@@ -139,7 +139,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
             </label>
 
             <fieldset className="space-y-1">
-              <legend>Employees without a user_api record</legend>
+              <legend>Employees without a user account and profile</legend>
               {unassignedEmployees.length === 0 ? (
                 <p className="text-gray-500">All employees already users.</p>
               ) : (
