@@ -32,6 +32,9 @@ type JoinedEmployee = EmployeeTable & {
 async function getEmployeeData(): Promise<Employee[]> {
   const supabase = supabaseUtils.createServerClient(cookies());
 
+  // TODO: Only one minor bug in whole project I'm aware of. 
+  // The signed in user can't see their own name in the manager column for their reports.
+  // The policy should be the single source of truth for this so trying to fix it there rather than with a hacky way here.
   const employeesQuery = supabase
     .from("employees")
     .select(
