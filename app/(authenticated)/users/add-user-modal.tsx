@@ -165,11 +165,6 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
               >
                 Submit
               </button>
-              {taskId && (
-                <span className="text-sm text-gray-600">
-                  Task ID: <code>{taskId}</code>
-                </span>
-              )}
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
