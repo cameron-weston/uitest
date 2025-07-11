@@ -35,29 +35,6 @@ export default function AuthForm({ className, ...props }: AuthFormProps) {
 
     setIsLoading(false);
 
-    // TODO: Add a unique constraint
-    // TODO: Add a policy to avoid injection attack 
-
-    // If auth id (user_id) is NULL for employee in employees table, add it now.
-    // const user = signInData.user;
-    // if (user) {
-    //   // Step 1: Find the employee by email
-    //   const { data: employee, error: fetchError } = await supabase
-    //     .from("employees")
-    //     .select("id, user_id")
-    //     .eq("email", user.email)
-    //     .maybeSingle();
-
-    //     debugger;
-    //   if (employee != null && employee.user_id === null) {
-    //     // Step 2: Update the user_id only if it's currently null
-    //     await supabase
-    //       .from("employees")
-    //       .update({ user_id: user.id })
-    //       .eq("id", employee.id);
-    //   }
-    //}
-
     if (error) alert(error.message);
     // push to home page
     router.push("/employee");

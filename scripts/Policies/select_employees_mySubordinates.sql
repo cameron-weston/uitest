@@ -1,3 +1,6 @@
+-- First, drop the existing policy
+DROP POLICY IF EXISTS "Managers view subordinates via view" ON employees;
+
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 
 -- Grant usage on the view to your authenticated role

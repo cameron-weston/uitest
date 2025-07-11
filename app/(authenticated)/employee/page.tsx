@@ -32,14 +32,6 @@ type JoinedEmployee = EmployeeTable & {
 async function getEmployeeData(): Promise<Employee[]> {
   const supabase = supabaseUtils.createServerClient(cookies());
 
-  const { data: testData, error: testError } = await supabase.rpc(
-    "test_authorization_header"
-  );
-  console.log(
-    `The user role is ${testData.role} and the user UUID is ${testData.sub}. `,
-    testError
-  );
-
   const employeesQuery = supabase
     .from("employees")
     .select(
@@ -50,15 +42,6 @@ async function getEmployeeData(): Promise<Employee[]> {
     console.error(error);
     return [];
   }
-
-  // Todo: Remove - for debugging
-  // const checkUser = async () => {
-  //     const { data: user, error } = await supabase.auth.getUser();
-
-  //     console.log("Logged-in user:", user);
-  //     if (error) console.error("Auth error:", error);
-  // };
-  // checkUser();
 
   return data.map((employee) => {
     return {

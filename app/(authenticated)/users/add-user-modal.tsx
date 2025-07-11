@@ -69,39 +69,36 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
       if (!response.ok) {
         throw new Error("Failed to trigger task");
       }
-
-    } 
-    // The useEffect will now monitor the task status
-    catch (error) {
+    } catch (error) {
       console.error("Error creating users:", error);
     }
   };
 
-useEffect(() => {
-  if (!taskId) return;
+  useEffect(() => {
+    if (!taskId) return;
 
-  const channel = supabase
-    .channel(`async_tasks_listener_${taskId}`)
-    .on(
-      "postgres_changes",
-      {
-        schema: "public",
-        table: "async_tasks",
-        event: "UPDATE",
-        filter: `id=eq.${taskId}`,
-      },
-      (payload) => {
-        if (payload.new.status === "done" || payload.new.status === "error") {
-          setIsOpen(false);
+    const channel = supabase
+      .channel(`async_tasks_listener_${taskId}`)
+      .on(
+        "postgres_changes",
+        {
+          schema: "public",
+          table: "async_tasks",
+          event: "UPDATE",
+          filter: `id=eq.${taskId}`,
+        },
+        (payload) => {
+          if (payload.new.status === "done" || payload.new.status === "error") {
+            window.location.reload();
+          }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => {
-    channel.unsubscribe();
-  };
-}, [taskId]);
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [taskId, router]);
 
   return (
     <>

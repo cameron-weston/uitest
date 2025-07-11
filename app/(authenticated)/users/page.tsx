@@ -22,14 +22,6 @@ export type UnassignedEmployee = {
 async function getUsersData(): Promise<UserRow[]> {
   const supabase = supabaseUtils.createServerClient(cookies());
 
-  const { data: testData, error: testError } = await supabase.rpc(
-    "test_authorization_header"
-  );
-  console.log(
-    `The user role is ${testData.role} and the user UUID is ${testData.sub}. `,
-    testError
-  );
-
   const usersQuery = supabase
     .from("user_api")
     .select(
