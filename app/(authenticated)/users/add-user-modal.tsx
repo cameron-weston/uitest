@@ -17,6 +17,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
   const [profile, setProfile] = useState<"admin" | "manager">("admin");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,8 +32,19 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
     });
   };
 
+  const resetModal = () => {
+    setAlert("");
+    setProfile("admin");
+    setSelectedIds(new Set());
+    setTaskId(null);
+    setIsSubmitting(false);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setAlert("");
+
     const payload = { user_ids: Array.from(selectedIds), profile };
 
     try {
@@ -43,7 +55,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
           status: "in_progress",
           payload: {
             user_ids: payload.user_ids,
-            profile: payload.profile, // TODO: Can make this an enum type in here and api. That way we can validate it and update it in once place in the future.
+            profile: payload.profile,
           },
         })
         .select()
@@ -51,13 +63,13 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
 
       if (insertError || !task) {
         console.error("Failed to create task:", insertError);
+        setAlert("Failed to create task. Please try again.");
+        setIsSubmitting(false);
         return;
       }
 
-      // Monitor the task id
       setTaskId(task.id);
 
-      // Call /tasks/trigger to start processing
       const response = await ky.post("/api/tasks", {
         method: "POST",
         headers: {
@@ -71,6 +83,8 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
       }
     } catch (error) {
       console.error("Error creating users:", error);
+      setAlert("Error creating users. Please try again.");
+      setIsSubmitting(false);
     }
   };
 
@@ -100,6 +114,13 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
     };
   }, [taskId, router]);
 
+  const handleClose = () => {
+    if (!isSubmitting) {
+      setIsOpen(false);
+      resetModal();
+    }
+  };
+
   return (
     <>
       <button
@@ -114,7 +135,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div
             className="absolute inset-0 bg-black opacity-50"
-            onClick={() => setIsOpen(false)}
+            onClick={handleClose}
           />
           <form
             onSubmit={handleSubmit}
@@ -132,6 +153,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
                   setProfile(e.target.value as "admin" | "manager")
                 }
                 className="mt-1 block w-full border rounded px-2 py-1"
+                disabled={isSubmitting}
               >
                 <option value="admin">Admin</option>
                 <option value="manager">Manager</option>
@@ -150,6 +172,7 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
                       checked={selectedIds.has(e.id)}
                       onChange={() => toggleSelect(e.id)}
                       className="form-checkbox"
+                      disabled={isSubmitting}
                     />
                     {e.first_name} {e.last_name}
                   </label>
@@ -160,15 +183,16 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
             <div className="flex items-center justify-between mt-4">
               <button
                 type="submit"
-                disabled={selectedIds.size === 0}
+                disabled={selectedIds.size === 0 || isSubmitting}
                 className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded disabled:opacity-50"
               >
-                Submit
+                {isSubmitting ? "Submitting..." : "Submit"}
               </button>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="text-gray-500 hover:underline"
+                disabled={isSubmitting}
               >
                 Cancel
               </button>

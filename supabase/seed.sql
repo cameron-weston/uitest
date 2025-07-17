@@ -141,3 +141,59 @@ INSERT INTO public.employees (id, created_at, first_name, last_name, salary, bon
 ('a2c5855b-0db0-4af2-b073-bc94c30be0f4', '2023-11-28 05:41:14.900017+00', 'Grace', 'Davis', 110000.00, 8000.00, 45000.00, '2023-09-20', NULL, 'grace.davis@example.com', 'e4ac31a5-719f-4a7f-89e0-6fba3306b48b', 'b27bc186-8d27-4306-8554-1730f65182d1'),
 ('b6cfd06b-2d92-4a9a-b9c1-071b2de2c4ee', '2023-11-28 05:41:14.900017+00', 'Jack', 'Wilson', 80000.00, 5000.00, 20000.00, '2023-10-05', 'c344cd0d-55b7-42f7-9f86-50b1bbf696c2', 'jack.wilson@example.com', 'e4ac31a5-719f-4a7f-89e0-6fba3306b48b', 'aed64cfb-6e8d-44ec-9be6-cb8490e68c1d');
 
+-- Add user_id column to employees table
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS user_id uuid;
+
+-- Add index for better query performance
+CREATE INDEX IF NOT EXISTS idx_employees_user_id ON public.employees(user_id);
+
+-- NOTE: When I started this project I did not realize there was an auth.users table.
+-- I realized later that instead of using auth.uid(), you probably wanted me to use
+-- JWT.Email() to match the authenticated user to the employees table. I decided against this in the 
+-- beginning because I thought it might be more secure to match on an id rather than an email.
+
+-- Update existing employees with matching user_id from auth.users
+UPDATE public.employees 
+SET user_id = auth_users.id
+FROM auth.users auth_users
+WHERE employees.email = auth_users.email;
+
+-- Create profile_type enum if it doesn't exist
+DO $$ BEGIN
+    CREATE TYPE profile_type AS ENUM ('admin', 'manager');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Create user_api table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.user_api (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  email text NOT NULL UNIQUE,
+  profile profile_type NOT NULL
+);
+
+-- Add indexes
+CREATE INDEX IF NOT EXISTS idx_user_api_email ON public.user_api(email);
+CREATE INDEX IF NOT EXISTS idx_user_api_profile ON public.user_api(profile);
+
+-- Seed users into user_api table
+INSERT INTO public.user_api (id, name, email, profile)
+SELECT 
+  au.id,
+  CASE 
+    WHEN au.email = 'david.anderson@example.com' THEN 'David Anderson'
+    WHEN au.email = 'emma.williams@example.com' THEN 'Emma Williams'
+  END as name,
+  au.email,
+  CASE 
+    WHEN au.email = 'david.anderson@example.com' THEN 'manager'::profile_type
+    WHEN au.email = 'emma.williams@example.com' THEN 'admin'::profile_type
+  END as profile
+FROM auth.users au
+WHERE au.email IN ('david.anderson@example.com', 'emma.williams@example.com')
+ON CONFLICT (id) DO NOTHING;
+
+-- Grant permissions
+GRANT SELECT ON user_api TO authenticated;
+
