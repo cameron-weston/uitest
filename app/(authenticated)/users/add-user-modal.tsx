@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import ky from "ky";
 import { createBrowserClient } from "@supabase/ssr";
 import { UnassignedEmployee } from "./page";
@@ -11,7 +10,6 @@ type Props = {
 };
 
 export default function AddUserModal({ unassignedEmployees }: Props) {
-  const router = useRouter();
   const [alert, setAlert] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
   const [profile, setProfile] = useState<"admin" | "manager">("admin");
@@ -88,31 +86,68 @@ export default function AddUserModal({ unassignedEmployees }: Props) {
     }
   };
 
-  useEffect(() => {
-    if (!taskId) return;
+useEffect(() => {
+  if (!taskId) return;
 
-    const channel = supabase
-      .channel(`async_tasks_listener_${taskId}`)
-      .on(
-        "postgres_changes",
-        {
-          schema: "public",
-          table: "async_tasks",
-          event: "UPDATE",
-          filter: `id=eq.${taskId}`,
-        },
-        (payload) => {
-          if (payload.new.status === "done" || payload.new.status === "error") {
-            window.location.reload();
+  let channel: any = null;
+
+  const getTaskStatus = async () => {
+    try {
+      const res = await ky.get(`/api/async_tasks/${taskId}`);
+      const data = await res.json<{
+        id: string;
+        status: string;
+      }>();
+
+      console.log(data);
+      // if the status is already done or error, mutate the call that fetches user_api data (race condition). The get call above should fetch the status of the task.
+      if (data.status === "done" || data.status === "error") {
+        console.log("Task already completed with status:", data.status);
+        setIsOpen(false);
+        resetModal();
+        window.location.reload();
+      }
+
+      // Only set up the listener if the task is still in progress
+      channel = supabase
+        .channel(`async_tasks_listener_${taskId}`)
+        .on(
+          "postgres_changes",
+          {
+            schema: "public",
+            table: "async_tasks",
+            event: "UPDATE",
+            filter: `id=eq.${taskId}`,
+          },
+          (payload) => {
+            console.log("Task status update:", payload.new.status);
+            if (
+              payload.new &&
+              payload.new.id === taskId &&
+              (payload.new.status === "done" ||
+                payload.new.status === "error")
+            ) {
+              setIsOpen(false);
+              resetModal();
+              window.location.reload();
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    } catch (error) {
+      console.error("Error fetching task status:", error);
+    }
+  };
 
-    return () => {
+  getTaskStatus();
+
+  // Cleanup function
+  return () => {
+    if (channel) {
       channel.unsubscribe();
-    };
-  }, [taskId, router]);
+    }
+  };
+}, [taskId]);
 
   const handleClose = () => {
     if (!isSubmitting) {
